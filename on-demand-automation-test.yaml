@@ -98,7 +98,7 @@ Resources:
     Properties:
       LaunchTemplateName: !Sub ${AWS::StackName}-launchtemplate
       LaunchTemplateData:
-        InstanceType: !Ref InstanceType
+        InstanceType: t3.xlarge
         ImageId: !Ref AmiId
         IamInstanceProfile:
           Arn: !GetAtt InstanceProfile.Arn
@@ -111,9 +111,9 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref LaunchTemplate
         Version: !GetAtt LaunchTemplate.LatestVersionNumber
-      MinSize: !Ref ASGMinSize
-      MaxSize: !Ref ASGMaxSize
-      DesiredCapacity: !Ref ASGDesiredCapacity
+      MinSize: 1
+      MaxSize: 1
+      DesiredCapacity: 1
       VPCZoneIdentifier:
         - !Ref PublicSubnet1ID
         - !Ref PublicSubnet2ID
