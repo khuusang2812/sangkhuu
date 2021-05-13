@@ -1,0 +1,164 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: On-Demand DP Automation Test
+Parameters:
+  KeyPairName:
+    Description: Instance KeyPair
+    Type: String
+    Default: edulog-vn-devops
+  AmiId:
+    Description: "Backend Base/Release AMI"
+    Type: String
+    Default: ami-016ebfc83f4b4a65e
+  InstanceType:
+    Description: "Backend Instance Type"
+    Type: String
+    AllowedValues:
+      - t3.small
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+    Default: t3.xlarge
+    ConstraintDescription: Choose an instance type.
+  ASGMinSize:
+    Description: "Minimum No of instances"
+    Type: Number
+    Default: 1
+  ASGMaxSize:
+    Description: "Maximum No of instances"
+    Type: Number
+    Default: 1
+  ASGDesiredCapacity:
+    Description: "Desired No of instances"
+    Type: Number
+    Default: 1
+  PublicSubnet1ID:
+    Description: The ID of the 1st public subnet.
+    Type: String
+    Default: subnet-017ae9ff67ca79e0a
+  PublicSubnet2ID:
+    Description: The ID of the 2nd public subnet.
+    Type: String
+    Default: subnet-0903554762a2f8a3f
+  VPCID:
+    Description: ID of the VPC you are deploying into (e.g., vpc-0343606e).
+    Type: String
+    Default: vpc-001246cf13e25cfce
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Automation Test Sg
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 1433
+          ToPort: 1433
+          CidrIp: 3.135.241.76/32
+        - IpProtocol: tcp
+          FromPort: 1433
+          ToPort: 1433
+          CidrIp: 101.53.43.242/32
+        - IpProtocol: tcp
+          FromPort: 1433
+          ToPort: 1433
+          CidrIp: 42.116.4.228/32
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 3.135.241.76/32
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref InstanceRole
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${AWS::StackName}-launchtemplate
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        ImageId: !Ref AmiId
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        KeyName: !Ref KeyPairName
+        SecurityGroupIds:
+          - !Ref SecurityGroup
+  AutoScaling:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: !Ref ASGMinSize
+      MaxSize: !Ref ASGMaxSize
+      DesiredCapacity: !Ref ASGDesiredCapacity
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet1ID
+        - !Ref PublicSubnet2ID
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-instance
+          PropagateAtLaunch: true
+        - Key: author
+          Value: ktvn-devops
+          PropagateAtLaunch: true
+        - Key: environment
+          Value: test
+          PropagateAtLaunch: true
+        - Key: project
+          Value: automation-test
+          PropagateAtLaunch: true
+        - Key: spot-enabled
+          Value: "true"
+          PropagateAtLaunch: true
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: "1"
+        MaxBatchSize: "1"
+        PauseTime: "PT2M5S"
+        SuspendProcesses:
+          - HealthCheck
+          - ReplaceUnhealthy
+          - AZRebalance
+          - AlarmNotification
+          - ScheduledActions
+  CPUTargetTrackingScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScaling
+      Cooldown: "60"
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 80.0
+Outputs:
+  BEASGName:
+    Description: Backend AutoScaling Group Name
+    Value: !Ref AutoScaling
