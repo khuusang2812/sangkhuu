@@ -10,27 +10,6 @@ Parameters:
     Description: "Backend Base/Release AMI"
     Type: AWS::EC2::Image::Id
     Default: ami-016ebfc83f4b4a65e
-  InstanceType:
-    Description: "Backend Instance Type"
-    Type: String
-    AllowedValues:
-      - t3.small
-      - t3.medium
-      - t3.large
-      - t3.xlarge
-      - m5.large
-      - m5.xlarge
-      - m5.2xlarge
-    ConstraintDescription: Choose an instance type.
-  ASGMinSize:
-    Description: "Minimum No of instances"
-    Type: Number
-  ASGMaxSize:
-    Description: "Maximum No of instances"
-    Type: Number
-  ASGDesiredCapacity:
-    Description: "Desired No of instances"
-    Type: Number
   PublicSubnet1ID:
     Description: The ID of the 1st public subnet.
     Type: AWS::EC2::Subnet::Id
@@ -70,7 +49,6 @@ Resources:
           FromPort: 5432
           ToPort: 5432
           CidrIp: 3.135.241.76/32
-
   InstanceRole:
     Type: AWS::IAM::Role
     Properties:
